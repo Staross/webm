@@ -1,28 +1,57 @@
 using HTTPClient.HTTPC
 using URIParser
 
-function getPage(url::String)
+function getPage(url::String,;debug=false)
 
-    println("Getting url: $url")
+    #println("Getting url: $url")
 
-    r = HTTPC.get(url,RequestOptions(request_timeout=5.0));
-    if r.http_code != 200
-        warn("couldn't read url : $url, HTTP code : $r.http_code")
+    try
+
+        r = HTTPC.get(url,RequestOptions(request_timeout=5.0));
+        if r.http_code != 200
+            code = r.http_code
+            if debug
+                warn("couldn't read url : $url, HTTP code : $code")
+            end
+            return (false,"")
+        end
+
+        heads = ["Content-Type","Content-type","content-type","content-Type"]
+        for h in heads
+            if haskey(r.headers,h) 
+                if match(r"text/htm",lowercase(r.headers[h])) == nothing  
+                    return (false,"")
+                end
+            end
+        end
+
+        return (true,lowercase(bytestring(r.body)) )
+
+    catch err
+        if debug
+            println(err)
+        end
         return (false,"")
-    end
-
-    if r.headers["Content-Type"] != "text/htm"
-        (false,"")
-    end
-
-    return (true,lowercase(bytestring(r.body)) )
+    end   
 end
 
 
 function getHost(url::String)
 
-    u=URI(url)
-    return u.host, u.schema
+    try
+        u = URI(ascii(url))
+        host = lowercase(u.host)
+        if false && length(host)>3 #you can't do that, some servers don't like it
+           if host[1:4] != "www."
+                host = string("www.",host)
+           end 
+        end
+        return host, lowercase(u.schema)
+
+    catch
+        warn("getHost failed to parse: $url")
+        return (String[],String[])
+    end
 end
 
 function getLinks(page::String,url::String)
@@ -46,9 +75,9 @@ function getLinks(page::String,url::String)
         #Full links
         if length(s)>3 && s[1:4] == "http"
 
-            u = URI( ascii(s) )
+            shost, sc = getHost(s)
 
-            if u.host == host
+            if host == shost
                 push!(intL, s )
             else
                 push!(extL, s )
@@ -60,9 +89,9 @@ function getLinks(page::String,url::String)
         if length(s)>2 && s[1:2] == "//"
 
             s = string(schema,"://",utf8(s[3:end]))
-            u = URI( ascii(s) )
+            shost, sc = getHost(s)
 
-            if u.host == host
+            if shost == host
                 push!(intL, s )
             else
                 push!(extL, s )
@@ -97,6 +126,7 @@ function getLinks(page::String,url::String)
             link = string(schema,"://",host,link)
 
             push!(intL, link)
+            continue
         end
 
     end
@@ -112,7 +142,7 @@ end
 
 function cleanLinks(links)
 
-    ext = ["png","jpg","gif","css","js"]
+    ext = ["png","jpg","gif","css","js","pdf"]
     isValid = ones(length(links))
 
     for i = 1:length(links)
@@ -145,70 +175,428 @@ function cleanLinks(links)
     return links
 end
 
+function writeInFile(var::Array{String,1},file::String)
 
-url = "http://www.reddit.com/r/adviceanimals/comments/21lrul/i_feel_bad_so_i_have_to_make_up_for_it/"
+    f=open(file,"w")
+    for i=1:length(var) println(f,var[i]) end
+    close(f)
+end
 
-host,schema = getHost(url)
-sucess,page = getPage(url);
+function removeHttp(url)
 
-intL,extL = getLinks(page,url)
+    if length(url) > 7 
+        if  url[1:7]== "http://"
+            url = url[8:end]
+        end
+    end
+    return url
+end
 
-#println(intL)
+function Base.write(url::String,d::Dict{UTF8String, Int64})
 
-if(true)
+    url = convert(Int64,hash(url))
+    url = string(url)
+    c = collect(values(d)) 
+    w = collect(keys(d)) 
 
-for i in 1:min(30,length(intL))
-    rrefs = remotecall(1, getPage, intL[i])
+    f=open( "data/$(url)_w" ,"w")
+    writecsv(f,w)
+    close(f)
+
+    f=open( "data/$(url)_c" ,"w")
+    write(f,c)
+    close(f)
+
+end
+
+function Base.read(url::String)
+
+    url = convert(Int64,hash(url))
+    url = string(url)
+
+    f=open( "data/$(url)_w","r")
+    w = readcsv(f,UTF8String)
+    close(f)
+
+    c = Array(Int64,length(w))
+    f=open( "data/$(url)_c","r")
+    for i=1:length(w)
+        c[i] = read(f,Int64)        
+    end
+    close(f)
+
+    d = Dict{UTF8String, Int64}()
+
+    for i = 1:length(w)
+
+        d[w[i]] = c[i]
+    end
+
+    return d
+end
+
+function writeInFile(d::Dict{UTF8String, Int64},file::String)
+
+    f=open(file,"w")
+
+    c = collect(values(d)) 
+    k = collect(keys(d)) 
+
+    idx = sortperm(c)
+
+    for i = 1:length(idx)
+        w = k[idx[i]]
+        n = c[idx[i]]
+        println(f,"$n : $w")
+    end 
+    close(f)
+end
+
+
+function getWords1(page)
+
+    #remove javascript, css, ..
+    ex = r"<\s*script[^<]*?>.*?</\s*script\s*>"is;
+    page = replace(page,ex,"")
+
+    ex = r"<\s*style[^<]*?>.*?</\s*style\s*>"is;
+    page = replace(page,ex,"")
+    page = replace(page,r"<!--.*?-->"is,"")
+
+    # remove tags
+    ex = r"<[^>]*>"is;
+    page = replace(page, ex, "");
+
+    #remove some html tags
+    page = replace(page, "&nbsp;", " ");
+    page = replace(page, "&quot;", "");
+    page = replace(page, "&#8217;", "'");
+    
+
+    page = replace(page, r"[^\w\n\s\t-]"is, " "); #remove non-text
+
+    page = replace(page, r"\s+"," ");
+
+    println(page)
+
+end
+
+function cleanPage(s::String)
+
+    #remove javascript, css, ..
+    ex = r"<\s*script[^<]*?>.*?</\s*script\s*>"is;
+    s = replace(s,ex,"")
+
+    ex = r"<\s*style[^<]*?>.*?</\s*style\s*>"is;
+    s = replace(s,ex,"")
+    s = replace(s,r"<!--.*?-->"is,"")
+
+    s = replace(s,r"\n"," ")
+    s = replace(s,r"\t"," ")
+    s = replace(s,r"—"," ")#long dash
+
+    #remove some html tags
+    s = replace(s, "&nbsp;", " ");
+    s = replace(s, "&quot;", "");
+    s = replace(s, "&gt;", ">");
+    s = replace(s, "&lt;", "<");
+    s = replace(s, "&raquo;", "'");
+    s = replace(s, "&laquo;", "'");
+    
+    for i=16:22
+        s = replace(s, Regex("&#82$i;","is"), "'");
+    end
+
+    #remove some common tags
+    tags = ["a","i","b","p","span","li","ul","h1","h2","h3","tt","cite"]
+    for t in tags
+        s = replace(s, Regex("<\s*$t[^>]*>","is"), " ")
+        s = replace(s, Regex("<\s*/\s*$t\s*>","is")," ")
+    end
+
+    s = replace(s, r"\"","'")
+
+    #remove punctuation
+    s = replace(s, r","," ")
+    s = replace(s, r"\."," ")
+    s = replace(s, r"\?"," ")
+    s = replace(s, r"\s+"," ")
+
+end
+
+function getWords(s;debug=false)
+
+    s = cleanPage(s)
+
+    #split
+    ex = r"([A-Z0-9a-z\s.,!?'\"$&:;\-\(\)%\*\+]*)"is
+    mat = matchall(ex,s)
+
+
+    N = length(mat)
+
+    phraseLength         = zeros(N);
+    meanWordLength       = zeros(N);
+    fractionOfNumbers    = zeros(N);
+    fractionOfWeirdSigns = zeros(N);
+
+    for i=1:N
+
+        p = mat[i]
+
+        Ntot = length( replace(p,r"\s+","") )
+
+        #compute fraction of numbers and of weird signs
+        tmpNoNumbers = replace(p, r"[^a-z]"," ");#remove everything except A-Z
+
+        p = replace(p, r"[^a-z0-9]", " ");#remove everything except A-Z and numbers
+
+        N1 = length( replace(tmpNoNumbers,r"\s+","") )
+        N2 = length( replace(p,r"\s+","") )
+
+        if N2>0 
+            fractionOfNumbers[i] = (N2-N1)/N2
+        end
+
+        if Ntot>0 
+            fractionOfWeirdSigns[i] = (Ntot-N2)/Ntot
+        end
+
+        words = split(p,r"\s+")
+
+        phraseLength[i] = length(words)
+
+        if !isempty(words)
+            for j=1:length(words)
+                meanWordLength[i] = meanWordLength[i] + length(words[j])
+            end
+
+            meanWordLength[i] = meanWordLength[i]/length(words)
+        end
+
+    end
+
+    phrases = find( 
+             (phraseLength .> 10) & (meanWordLength .< 10) & 
+             (meanWordLength .> 3) & (fractionOfNumbers .< 0.1) & 
+             (fractionOfWeirdSigns .< 0.1 ) )
+
+    phrases = unique(mat[phrases])
+
+    out = String[]
+    for p in phrases
+
+        p = replace(p,r"[^a-z0-9-'']"," ")
+        p = split(p, r"[\s*\t*]")
+
+        for w in p
+            if !isempty(w) && w != " " && w != "-"
+                push!(out,utf8(w))
+            end
+        end
+
+    end
+
+    if debug
+        writeInFile(out,"tmp.txt")
+    end
+
+    return out
+end
+
+function sortDict(d)#pretty much useless
+
+    c = collect(values(d)) 
+    k = collect(keys(d)) 
+
+    idx = sortperm(c)
+
+    d = Dict{UTF8String, Int64}()
+    
+    for i = 1:length(idx)
+        d[k[idx[i]]] = c[idx[i]]
+    end 
+
+    return d
+end
+
+function countWords(words)
+
+    d = Dict{UTF8String, Int64}()
+
+    for w in words
+
+        if haskey(d,w)             
+            d[w] = d[w]+1
+        else
+            d[w] = 1
+        end    
+    end
+
+    return d
+end
+
+function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.2)
+
+    sucess,page = getPage(url,debug = true)
+
+    if !sucess
+        return (String[], String[])
+    end
+
+    words = getWords(page)
+
+    extL = String[]
+
+    if depth > 0 
+
+        intL,extL = getLinks(page,url)
+                
+        intL = setdiff(intL,alreadySeenLinks)
+        
+        if isempty(intL) 
+           return  (words, extL)
+        end
+        
+        p = randperm(length(intL))
+        p = p[1:min(maxPages,length(intL))]
+        
+        alreadySeenLinks = [alreadySeenLinks; intL[p]]
+        
+        rrefs = []
+        for i=1:length(p)
+
+            #tmpW, tmpL = exploreSite(depth-1,maxPages,intL[p[i]],alreadySeenLinks)
+ 
+            rrefs = [rrefs; remotecall(1, exploreSite,
+                    depth-1,maxPages,intL[p[i]],alreadySeenLinks)]
+            #wait(rrefs[i])
+            sleep(sleepTime)
+        end
+
+        for r in rrefs
+           wait(r)
+        end
+
+        for r in rrefs
+            tmpW, tmpL = fetch(r)
+
+            words = [words; tmpW]
+            extL = [extL; tmpL]
+        end 
+        
+    end
+
+    return  (words, extL)
+end
+
+
+function crawl(depth,maxPages,url)
+
+    links = [url];
+
+    if depth > 0 
+        
+        sucess,page = getPage(url,debug = false)
+
+        if !sucess
+            return links
+        end
+        
+        intL,extL = getLinks(page,url)
+        
+        if isempty(extL) 
+           return
+        end
+          
+        p = randperm(length(extL));
+        p = p[1:min(maxPages,length(extL))];
+
+        rrefs = []
+        for i=1:length(p)
+            rrefs = [rrefs;
+                     remotecall( 1,crawl,depth-1,maxPages,extL[p[i]] )
+                    ]
+        end
+        for r in rrefs
+           wait(r)
+        end
+        for r in rrefs
+            tmpL = fetch(r)
+            links = [links; tmpL]
+        end 
+    end
+
+    return links
+end
+
+
+#test basic functions
+function testBasicFunctions(url)
+    host,schema = getHost(url)
+    sucess,page = getPage(url)
+
+    @time intL,extL = getLinks(page,url)
+    @time words = getWords(page,debug=false)
+    @time d = countWords(words)
+    @time write(url,d)
+    @time d = read(url)
+    nothing
+end
+
+######################### let's have fun
+
+urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
+        "http://www.reddit.com/r/games",
+         "http://www.fuq.com",
+         "http://www.philpapers.org",
+         "http://www.cnet.com/"]
+
+url = urls[5]
+
+
+#test exploreSite
+if false
+
+depth = 3
+maxPages = 8
+words, extL = exploreSite(depth,maxPages,url,String[])
+
+@time d = countWords(words)
+
+println(length(d))
+writeInFile(d,"tmp.txt")
+
+end
+
+if(false)
+depth = 3
+maxPages = 8
+links = crawl(depth,maxPages,url)
+
+println(links)
+end
+
+if(false)
+
+rrefs = []
+for i in 1:min(30,length(extL))
+    rrefs = [rrefs; remotecall(1, getPage, extL[i])]
     sleep(0.01)
 end
 
+for r in rrefs
+   wait(r)
 end
 
-#ostream=open("tmp.txt", "w+")
-#r=HTTPC.get("http://docs.julialang.org/en/release-0.2/manual/parallel-computing/?highlight=remotecall",RequestOptions(ostream=ostream))
-#@assert r.http_code == 200
-#close(ostream)
-
-#xdoc = LightXML.parse_htmlFile("tmp.txt",encoding="utf-8")
-
-#xroot = root(xdoc)
-#body =  get_elements_by_tagname(xroot, "body")[1];
-
-#as =  get_elements_by_tagname(body, "a");
-
-#function getTag(root,tag)
-
-#    out = get_elements_by_tagname(root, tag)
-
-#    for el in child_nodes(root)
-
-#        if is_elementnode(el)
-#            out = [out getTag(XMLElement(el),tag)]
-#        end
-
-#    end
+for r in rrefs
+    sucess,page = fetch(r)
+    println(sucess)
+end
 
 
-#    return out
-#end
+end
 
-#function waitnexec (id)
-#    tname = "async" * string(id)
-#    global trigger
-#    while (trigger != :go)
-#        sleep(0.001)
-#    end
-#    r=HTTPC.get("http://www.google.com/")
-#    @assert r.http_code == 200
-#    println(id)
-#end
 
-## Run 100 requests in parallel asynchronously
-#trigger = :wait
-#rrefs = [remotecall(1, waitnexec, i) for i in 1:100]
 
-#trigger = :go
-## wait for all of them to finish
-#for ref in rrefs
-#    wait(ref)
-#end
+
