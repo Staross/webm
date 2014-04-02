@@ -68,6 +68,9 @@ function getLinks(page::String,url::String)
     for i in m
         s =  utf8(i.captures[1]);
 
+        #remove whitespaces
+        s = replace(s,r"\s+","")
+
         if(length(s) < 2)
             continue
         end
@@ -308,7 +311,7 @@ function cleanPage(s::String)
     end
 
     #remove some common tags
-    tags = ["a","i","b","p","span","li","ul","h1","h2","h3","tt","cite"]
+    tags = ["a","i","b","p","span","li","ul","h1","h2","h3","tt","cite","td","tr","table","div"]
     for t in tags
         s = replace(s, Regex("<\s*$t[^>]*>","is"), " ")
         s = replace(s, Regex("<\s*/\s*$t\s*>","is")," ")
@@ -322,6 +325,7 @@ function cleanPage(s::String)
     s = replace(s, r"\?"," ")
     s = replace(s, r"\s+"," ")
 
+    return s
 end
 
 function getWords(s;debug=false)
@@ -331,7 +335,6 @@ function getWords(s;debug=false)
     #split
     ex = r"([A-Z0-9a-z\s.,!?'\"$&:;\-\(\)%\*\+]*)"is
     mat = matchall(ex,s)
-
 
     N = length(mat)
 
@@ -343,6 +346,10 @@ function getWords(s;debug=false)
     for i=1:N
 
         p = mat[i]
+
+        if length(p) == 0
+            continue
+        end
 
         Ntot = length( replace(p,r"\s+","") )
 
@@ -542,6 +549,8 @@ function testBasicFunctions(url)
     @time write(url,d)
     @time d = read(url)
     nothing
+
+    println(length(words))
 end
 
 ######################### let's have fun
