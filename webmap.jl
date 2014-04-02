@@ -443,6 +443,25 @@ function countWords(words)
     return d
 end
 
+function getLikelihood(s1,s2)
+
+        N = sum( collect(values(s1)) )
+        d = 0.0
+        for k in keys(s1)
+
+                if haskey(s2,k)
+                        d = d + s1[k]*log(s2[k]/N)
+                else
+                        d = d + s1[k]*log(1/N)
+                end
+        end
+        d = d / length(s1)
+        return d
+
+end
+
+
+
 function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.2)
 
     sucess,page = getPage(url,debug = true)
@@ -567,8 +586,8 @@ url = urls[5]
 #test exploreSite
 if false
 
-depth = 3
-maxPages = 8
+depth = 2
+maxPages = 4
 words, extL = exploreSite(depth,maxPages,url,String[])
 
 @time d = countWords(words)
