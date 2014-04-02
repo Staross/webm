@@ -1,5 +1,7 @@
 using HTTPClient.HTTPC
 using URIParser
+using Mustache
+using ASCIIPlots
 
 function getPage(url::String,;debug=false)
 
@@ -7,7 +9,11 @@ function getPage(url::String,;debug=false)
 
     try
 
-        r = HTTPC.get(url,RequestOptions(request_timeout=5.0));
+        r = HTTPC.get(url,RequestOptions(
+                        request_timeout=5.0,
+                        query_params=collect({:CURLOPT_USERAGENT=>"Mozilla/5.0 (Windows NT 6.1; rv:28.0) Gecko/20100101 Firefox/28.0"})
+                    ))
+
         if r.http_code != 200
             code = r.http_code
             if debug
@@ -195,10 +201,17 @@ function removeHttp(url)
     return url
 end
 
-function Base.write(url::String,d::Dict{UTF8String, Int64})
+function getHash(url::String)
 
     url = convert(Int64,hash(url))
     url = string(url)
+
+    return url
+end
+
+function Base.write(url::String,d::Dict{UTF8String, Int64})
+
+    url = getHash(url)
     c = collect(values(d)) 
     w = collect(keys(d)) 
 
@@ -214,8 +227,7 @@ end
 
 function Base.read(url::String)
 
-    url = convert(Int64,hash(url))
-    url = string(url)
+    url = getHash(url)
 
     f=open( "data/$(url)_w","r")
     w = readcsv(f,UTF8String)
@@ -441,23 +453,6 @@ function countWords(words)
     end
 
     return d
-end
-
-function getLikelihood(s1,s2)
-
-        N = sum( collect(values(s1)) )
-        d = 0.0
-        for k in keys(s1)
-
-                if haskey(s2,k)
-                        d = d + s1[k]*log(s2[k]/N)
-                else
-                        d = d + s1[k]*log(1/N)
-                end
-        end
-        d = d / length(s1)
-        return d
-
 end
 
 

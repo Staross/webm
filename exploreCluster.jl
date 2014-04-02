@@ -1,5 +1,4 @@
 reload("webmap.jl")
-using Mustache
 
 function loadData(urls)
 
@@ -136,6 +135,24 @@ function getDistance(s1,s2)
 	return d
 end
 
+function getLikelihood(s1,s2)
+
+        N2 = sum( collect(values(s2)) )
+        d = 0.0
+        N1 = 0
+        for k in keys(s1)
+
+                if haskey(s2,k)
+                        d = d + s1[k]*log(s2[k]/N2)
+                else
+                        d = d + s1[k]*log(1/N2)
+                end
+                N1 = N1 + s1[k]
+        end
+        d = d / N1
+        return d
+end
+
 urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
         "http://www.reddit.com/r/games",
          "http://www.fuq.com",
@@ -148,15 +165,17 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://www.nytimes.com/","http://www.usatoday.com/"]
 
-urls = ["http://philpapers.org/","http://plato.stanford.edu/","http://www.nytimes.com/","http://www.usatoday.com/"]
+urls = ["http://philpapers.org/","http://plato.stanford.edu/",
+		"http://www.nytimes.com/","http://www.usatoday.com/",
+		"http://www.r-project.org/","http://julia.readthedocs.org/en/latest/manual/"]
 
 Nu = length(urls)
 
-doUpdate = false
+doUpdate = true
 
-depth = 2
-maxPages = 6#number of page per level
-maxPages^depth
+depth = 3
+maxPages = 3#number of page per level
+println(maxPages^depth)
 
 if doUpdate
 
@@ -202,18 +221,21 @@ for i=1:Nu
 	score[i] = getScore(ds[i],bkg)
 end
 
-<<<<<<< HEAD
 idx = 4
-printScoreHTML(score[idx],urls[idx])
-=======
-idx = 1
-printScore(score[idx],urls[idx])
->>>>>>> ca8a9055773129b745f75b3dbf8154b1d0ab6c29
+#printScoreHTML(score[idx],urls[idx])
 
 D = zeros(Nu,Nu)
 for i=1:Nu
 	for j=1:Nu
-		D[i,j] = getDistance(score[i],score[j])
+		#D[i,j] = getDistance(score[i],score[j])
+		D[i,j] = -getLikelihood(ds[i],ds[j])
+	end
+end
+
+dia = diag(D)
+for i=1:Nu
+	for j=1:Nu
+		D[i,j] = D[i,j]-dia[i]/2  -dia[j]/2
 	end
 end
 
