@@ -192,10 +192,17 @@ function removeHttp(url)
     return url
 end
 
-function Base.write(url::String,d::Dict{UTF8String, Int64})
+function getHash(url::String)
 
     url = convert(Int64,hash(url))
     url = string(url)
+    return url
+end
+
+function Base.write(url::String,d::Dict{UTF8String, Int64})
+
+    url = getHash(url)
+
     c = collect(values(d)) 
     w = collect(keys(d)) 
 
@@ -211,8 +218,7 @@ end
 
 function Base.read(url::String)
 
-    url = convert(Int64,hash(url))
-    url = string(url)
+    url = getHash(url)
 
     f=open( "data/$(url)_w","r")
     w = readcsv(f,UTF8String)

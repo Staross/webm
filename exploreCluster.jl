@@ -1,5 +1,5 @@
 reload("webmap.jl")
-
+using Mustache
 
 function loadData(urls)
 
@@ -34,6 +34,58 @@ function printScore(d,url)
     println("------------------")
 
 end
+
+
+function printScoreHTML(d,url)
+
+    c = collect(values(d)) 
+    k = collect(keys(d)) 
+    idx = sortperm(c)
+
+	tpl = "
+	<html>
+	<head>
+	<title>{{Title}}</title>
+	</head>
+	<body>
+		<p>{{Title}}</p>
+		<table>
+			<tr><th>name</th><th>Score (Log10)</th></tr>
+			{{#d}}
+			<tr><td>{{w}}</td><td>{{n}}</td></tr>
+			{{/d}}
+		</table>
+	</body>
+	</html>
+	"
+
+	d = Array{Dict{Any,Any}}
+
+	 for i = 1:min(length(idx),15)
+	    w = k[idx[i]]
+	    n = c[idx[i]]
+	    d = [d;{"w" => w, "n" => n}]
+	end 
+
+	for i = max(length(idx)-15,1):length(idx)
+	    w = k[idx[i]]
+	    n = c[idx[i]]
+	    d = [d;{"w" => w, "n" => n}]
+	end 
+
+	out = render(tpl, {"Title" => url, "d" => d})
+	url  = getHash(url)
+	f = open("tmp/$(url).htm","w")
+	print(f,out)
+	close(f)
+
+	#open file in browser
+	root = pwd()
+	cmd = `cmd /C $(root)\\tmp\\$(url).htm`
+	println(cmd)
+	run(cmd)
+end
+
 
 function makeBackground(ds)
 
@@ -98,7 +150,7 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
 
 Nu = length(urls)
 
-doUpdate = true
+doUpdate = false
 
 depth = 2
 maxPages = 6#number of page per level
@@ -148,8 +200,8 @@ for i=1:Nu
 	score[i] = getScore(ds[i],bkg)
 end
 
-idx = 12
-printScore(score[idx],urls[idx])
+idx = 4
+printScoreHTML(score[idx],urls[idx])
 
 D = zeros(Nu,Nu)
 for i=1:Nu
