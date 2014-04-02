@@ -148,6 +148,8 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://www.nytimes.com/","http://www.usatoday.com/"]
 
+urls = ["http://philpapers.org/","http://plato.stanford.edu/","http://www.nytimes.com/","http://www.usatoday.com/"]
+
 Nu = length(urls)
 
 doUpdate = false
@@ -200,8 +202,13 @@ for i=1:Nu
 	score[i] = getScore(ds[i],bkg)
 end
 
+<<<<<<< HEAD
 idx = 4
 printScoreHTML(score[idx],urls[idx])
+=======
+idx = 1
+printScore(score[idx],urls[idx])
+>>>>>>> ca8a9055773129b745f75b3dbf8154b1d0ab6c29
 
 D = zeros(Nu,Nu)
 for i=1:Nu
