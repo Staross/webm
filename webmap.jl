@@ -1,3 +1,5 @@
+reload("htmlEntities")
+
 using HTTPClient.HTTPC
 using URIParser
 using Mustache
@@ -31,7 +33,10 @@ function getPage(url::String,;debug=false)
             end
         end
 
-        return (true, bytestring(r.body) )
+        page = bytestring(r.body)
+        page = removeHTMLEntities(page)
+
+        return (true, page)
 
     catch err
         if debug
@@ -67,13 +72,13 @@ function getLinks(page::String,url::String)
 
     #m = eachmatch(r"href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|'']"is,page) #don't care about a tag
 
-    m = eachmatch(r"<a[^>]*href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|''][^>]*[>|/>]"is,page)
+    matches = eachmatch(r"<a[^>]*href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|''][^>]*[>|/>]"is,page)
 
     intL = Array(String,0)
     extL = Array(String,0)
 
-    for i in m
-        s =  utf8(i.captures[1])
+    for m in matches
+        s =  utf8(m.captures[1])
 
         #remove whitespaces
         s = replace(s,r"\s+"is,"")
@@ -142,7 +147,14 @@ function getLinks(page::String,url::String)
         #nothing links
         if match(r"[a-z0-9]"is,string(s[1])) != nothing  #already tested the other possibilities above, just check if alphanumeric
 
-            push!(intL, string(schema,"://",host,"/",utf8(s)) )
+            if(s[end] == '/')
+                push!(intL, string(url,utf8(s)) )
+            else
+                surl = split(url,'/')
+                surl = surl[1:end-1]
+                link = string(["$part/" for part in surl]...)
+                push!(intL,string(link,utf8(s)))
+            end
             continue
         end
 
@@ -591,8 +603,7 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
 
-url = urls[6]
-
+url = urls[1]
 
 #test exploreSite
 if true

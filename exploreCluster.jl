@@ -165,7 +165,7 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://www.nytimes.com/","http://www.usatoday.com/"]
 
-urls = ["http://philpapers.org/","http://plato.stanford.edu/",
+urls = ["http://www.iep.utm.edu/","http://plato.stanford.edu/",
 		"http://www.nytimes.com/","http://www.usatoday.com/",
 		"http://www.r-project.org/","http://julia.readthedocs.org/en/latest/manual/"]
 
