@@ -31,7 +31,7 @@ function getPage(url::String,;debug=false)
             end
         end
 
-        return (true,lowercase(bytestring(r.body)) )
+        return (true, bytestring(r.body) )
 
     catch err
         if debug
@@ -64,6 +64,7 @@ function getLinks(page::String,url::String)
 
     host,schema = getHost(url)
 
+
     #m = eachmatch(r"href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|'']"is,page) #don't care about a tag
 
     m = eachmatch(r"<a[^>]*href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|''][^>]*[>|/>]"is,page)
@@ -72,17 +73,17 @@ function getLinks(page::String,url::String)
     extL = Array(String,0)
 
     for i in m
-        s =  utf8(i.captures[1]);
+        s =  utf8(i.captures[1])
 
         #remove whitespaces
-        s = replace(s,r"\s+","")
+        s = replace(s,r"\s+"is,"")
 
         if(length(s) < 2)
             continue
         end
 
         #Full links
-        if length(s)>3 && s[1:4] == "http"
+        if length(s)>3 && lowercase(s[1:4]) == "http"
 
             shost, sc = getHost(s)
 
@@ -138,6 +139,13 @@ function getLinks(page::String,url::String)
             continue
         end
 
+        #nothing links
+        if match(r"[a-z0-9]"is,string(s[1])) != nothing  #already tested the other possibilities above, just check if alphanumeric
+
+            push!(intL, string(schema,"://",host,"/",utf8(s)) )
+            continue
+        end
+
     end
 
     intL = cleanLinks(intL)
@@ -155,7 +163,14 @@ function cleanLinks(links)
     isValid = ones(length(links))
 
     for i = 1:length(links)
-        l = links[i]
+        l = lowercase(links[i])
+
+        #look for email links
+        if( match(r"mailto:[\w-]+@[\w-]+.\w+"is,l) != nothing)
+            isValid[i] = 0
+            continue
+        end
+
         for ex in ext
             if length(l) >= length(ex)
 
@@ -172,7 +187,7 @@ function cleanLinks(links)
     isValid = ones(length(links))
     for i = 1:length(links)
         l = links[i]
-        m = match(r"#[^/]*",l)
+        m = match(r"#[^/]*"is,l)
 
         if m != nothing
             l = l[1:m.offset-1]
@@ -194,7 +209,7 @@ end
 function removeHttp(url)
 
     if length(url) > 7 
-        if  url[1:7]== "http://"
+        if  lowercase(url[1:7]) == "http://"
             url = url[8:end]
         end
     end
@@ -297,6 +312,8 @@ function getWords1(page)
 end
 
 function cleanPage(s::String)
+
+    s = lowercase(s)
 
     #remove javascript, css, ..
     ex = r"<\s*script[^<]*?>.*?</\s*script\s*>"is;
@@ -455,8 +472,6 @@ function countWords(words)
     return d
 end
 
-
-
 function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.2)
 
     sucess,page = getPage(url,debug = true)
@@ -573,16 +588,17 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
         "http://www.reddit.com/r/games",
          "http://www.fuq.com",
          "http://www.philpapers.org",
-         "http://www.cnet.com/"]
+         "http://www.cnet.com/",
+         "http://www.r-project.org/"]
 
-url = urls[5]
+url = urls[6]
 
 
 #test exploreSite
-if false
+if true
 
 depth = 2
-maxPages = 4
+maxPages = 5
 words, extL = exploreSite(depth,maxPages,url,String[])
 
 @time d = countWords(words)
