@@ -598,15 +598,15 @@ end
 
 urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
         "http://www.reddit.com/r/games",
-         "http://www.fuq.com",
+         "http://www.usatoday.com/",
          "http://www.philpapers.org",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
 
-url = urls[1]
+url = urls[3]
 
 #test exploreSite
-if true
+if false
 
 depth = 2
 maxPages = 5

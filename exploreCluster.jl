@@ -114,7 +114,7 @@ function getScore(d,bkg)
 	N1 = sum(values(d))
 	N2 = sum(values(bkg))
 	for k in keys(d)
-		score[k] = log10( N2/N1 * d[k] / bkg[k] )
+                score[k] = log10( N2/N1 * d[k] / bkg[k] )
 	end
 	return score
 end
@@ -133,6 +133,28 @@ function getDistance(s1,s2)
 	end 
 	d = 100 * d / length(s1) / length(s2)
 	return d
+end
+
+#http://en.wikipedia.org/wiki/Cosine_similarity
+function getDistanceCosine(s1,s2)
+
+        terms = unique( [collect(keys(s1)); collect(keys(s2))] )
+        d = 0.0
+
+        for k in terms
+            if haskey(s1,k) && haskey(s2,k)
+                d += s1[k]*s2[k]
+            end
+        end
+
+        d /= norm( collect(values(s1)) )
+        d /= norm( collect(values(s2)) )
+
+        d = 2*d
+        d = min(d,1)
+        #d = acos(d)
+
+        return d
 end
 
 function getLikelihood(s1,s2)
@@ -158,7 +180,7 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.fuq.com",
          "http://www.philpapers.org","http://www.techradar.com/"]
 
- urls = ["http://www.techradar.com/","http://www.engadget.com/","http://www.cnet.com/",
+urls = ["http://www.techradar.com/","http://www.engadget.com/","http://www.cnet.com/",
 "http://philpapers.org/","http://plato.stanford.edu/","http://www.iep.utm.edu/","http://web.mit.edu/",
 "http://yale.edu/","http://www.rockpapershotgun.com/","http://www.indiedb.com/",
 "http://www.lushstories.com/","http://www.fuq.com","http://www.youjizz.com/",
@@ -171,7 +193,7 @@ urls = ["http://www.iep.utm.edu/","http://plato.stanford.edu/",
 
 Nu = length(urls)
 
-doUpdate = true
+doUpdate = false
 
 depth = 3
 maxPages = 3#number of page per level
@@ -227,18 +249,18 @@ idx = 4
 D = zeros(Nu,Nu)
 for i=1:Nu
 	for j=1:Nu
-		#D[i,j] = getDistance(score[i],score[j])
-		D[i,j] = -getLikelihood(ds[i],ds[j])
+                D[i,j] = getDistanceCosine(score[i],score[j])
+                #D[i,j] = -getLikelihood(ds[i],ds[j])
 	end
 end
 
-dia = diag(D)
-for i=1:Nu
-	for j=1:Nu
-		D[i,j] = D[i,j]-dia[i]/2  -dia[j]/2
-	end
-end
+#dia = diag(D)
+#for i=1:Nu
+#	for j=1:Nu
+#		D[i,j] = D[i,j]-dia[i]/2  -dia[j]/2
+#	end
+#end
 
-D = (D+D')/2
+#D = (D+D')/2
 
 println("done")
