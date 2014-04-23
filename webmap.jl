@@ -613,7 +613,7 @@ end
 
 urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
         "http://www.reddit.com/r/games",
-         "http://www.fuq.com",
+         "http://www.usatoday.com/",
          "http://www.philpapers.org",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
