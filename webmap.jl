@@ -3,9 +3,18 @@ reload("htmlEntities")
 using HTTPClient.HTTPC
 using URIParser
 using Mustache
-using ASCIIPlots
+using Winston
 
-function getPage(url::String,;debug=false)
+
+#callback for HTTPC.get, allow to use libCURL options
+function customize_curl(curl)
+  cc = LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; rv:28.0) Gecko/20100101 Firefox/28.0")
+  if cc != LibCURL.CURLE_OK
+    error ("CURLOPT_USERAGENT failed: " * LibCURL.bytestring(curl_easy_strerror(cc)))
+  end  
+end
+
+function getPage(url::String;debug=false)
 
     #println("Getting url: $url")
 
@@ -13,7 +22,7 @@ function getPage(url::String,;debug=false)
 
         r = HTTPC.get(url,RequestOptions(
                         request_timeout=5.0,
-                        query_params=collect({:CURLOPT_USERAGENT=>"Mozilla/5.0 (Windows NT 6.1; rv:28.0) Gecko/20100101 Firefox/28.0"})
+                        callback=customize_curl    
                     ))
 
         if r.http_code != 200
@@ -253,12 +262,18 @@ function Base.write(url::String,d::Dict{UTF8String, Int64})
 end
 
 function Base.read(url::String)
-
+println(url)
     url = getHash(url)
 
+
     f=open( "data/$(url)_w","r")
-    w = readcsv(f,UTF8String)
+    if !eof(f)
+        w = readcsv(f,UTF8String)
+    else
+        w = []
+    end
     close(f)
+    println(length(w))
 
     c = Array(Int64,length(w))
     f=open( "data/$(url)_c","r")
@@ -585,7 +600,7 @@ function testBasicFunctions(url)
     sucess,page = getPage(url)
 
     @time intL,extL = getLinks(page,url)
-    @time words = getWords(page,debug=false)
+    @time words = getWords(page,debug=true)
     @time d = countWords(words)
     @time write(url,d)
     @time d = read(url)
@@ -603,10 +618,10 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
 
-url = urls[1]
+url = urls[2]
 
 #test exploreSite
-if true
+if false
 
 depth = 2
 maxPages = 5
@@ -647,5 +662,6 @@ end
 
 end
 
+println("done")
 
 

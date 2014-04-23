@@ -165,16 +165,16 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://www.nytimes.com/","http://www.usatoday.com/"]
 
-urls = ["http://www.iep.utm.edu/","http://plato.stanford.edu/",
-		"http://www.nytimes.com/","http://www.usatoday.com/",
-		"http://www.r-project.org/","http://julia.readthedocs.org/en/latest/manual/"]
+#Lurls = ["http://www.iep.utm.edu/","http://plato.stanford.edu/",
+#		"http://www.nytimes.com/","http://www.usatoday.com/",
+#		"http://www.r-project.org/","http://julia.readthedocs.org/en/latest/manual/"]
 
 Nu = length(urls)
 
-doUpdate = true
+doUpdate = false
 
 depth = 3
-maxPages = 3#number of page per level
+maxPages = 4#number of page per level
 println(maxPages^depth)
 
 if doUpdate
@@ -242,3 +242,25 @@ end
 D = (D+D')/2
 
 println("done")
+
+
+d = score[12]
+url = urls[12]
+
+c = collect(values(d))
+k = collect(keys(d))
+idx = sortperm(c)
+
+p = FramedPlot( xrange=(0,1), yrange=(0,1))
+add(p,PlotLabel(0.5,0.97, url ,color=0xcc0000,size= 4 ))
+for i=1:10
+    for j=1:10
+            ii = idx[end- (i+(j-1)*10) ]
+            add(p, PlotLabel(i/12,j/12+rand()*0.1, k[ii] ,color=0x000000,size= 2 * c[ii]/maximum(c)  ))
+    end
+end
+
+title( url )
+display(p)
+
+
