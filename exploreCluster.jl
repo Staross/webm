@@ -92,7 +92,7 @@ function makeBackground(ds)
 
 	for i = 1:length(ds)		 
 	    c = collect(values(ds[i])) 
-    	w = collect(keys(ds[i])) 
+            w = collect(keys(ds[i]))
 
 		for j=1:length(w)
 			k = w[j]
