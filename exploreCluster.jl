@@ -283,7 +283,7 @@ c = collect(values(d))
 k = collect(keys(d))
 idx = sortperm(c)
 
-isFree = ones(100,
+isFree = ones(100,100)
 
 p = FramedPlot( xrange=(0,1), yrange=(0,1))
 add(p,PlotLabel(0.5,0.97, url ,color=0xcc0000,size= 4 ))
@@ -294,13 +294,11 @@ for i=1:10
             y = rand()
             x = rand()
 
-            x1,x2,y1,y2 = getBounds(x,y,s,length(k[ii]))
-
             s =  2 * c[ii]/maximum(c) + rand()
 
+            x1,x2,y1,y2 = getBounds(x,y,s,length(k[ii]))
+
             add(p, PlotLabel(x,y, k[ii] ,color=0x000000,size=s))
-
-
 
             add(p,Points(x1, y1, kind="dot",color="red"))
             add(p,Points(x2, y2, kind="dot",color="green"))
