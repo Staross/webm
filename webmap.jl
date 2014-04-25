@@ -499,7 +499,7 @@ function countWords(words)
     return d
 end
 
-function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.2)
+function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.3)
 
     sucess,page = getPage(url,debug = true)
 
@@ -531,8 +531,7 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.2)
 
             #tmpW, tmpL = exploreSite(depth-1,maxPages,intL[p[i]],alreadySeenLinks)
  
-            rrefs = [rrefs; remotecall(1, exploreSite,
-                    depth-1,maxPages,intL[p[i]],alreadySeenLinks)]
+            rrefs = [rrefs; remotecall(1, exploreSite,depth-1,maxPages,intL[p[i]],alreadySeenLinks)]
             #wait(rrefs[i])
             sleep(sleepTime)
         end
@@ -662,6 +661,6 @@ end
 
 end
 
-println("done")
+println("webmap.jl: done!")
 
 

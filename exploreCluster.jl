@@ -187,16 +187,16 @@ urls = ["http://www.techradar.com/","http://www.engadget.com/","http://www.cnet.
 "http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://www.nytimes.com/","http://www.usatoday.com/"]
 
-urls = ["http://www.iep.utm.edu/","http://plato.stanford.edu/",
-                "http://www.nytimes.com/","http://www.usatoday.com/",
-                "http://www.r-project.org/","http://julia.readthedocs.org/en/latest/manual/"]
+#urls = ["http://www.iep.utm.edu/","http://plato.stanford.edu/",
+ #               "http://www.nytimes.com/","http://www.usatoday.com/",
+  #              "http://www.r-project.org/","http://julia.readthedocs.org/en/latest/manual/"]
 
 Nu = length(urls)
 
 doUpdate = false
 
 depth = 3
-maxPages = 4#number of page per level
+maxPages = 6#number of page per level
 println(maxPages^depth)
 
 if doUpdate
@@ -264,46 +264,79 @@ end
 #D = (D+D')/2
 
 println("done")
-
-
 function getBounds(x,y,s,l)
 
-    x1 = x-s/300*l
-    x2 = x+s/300*l
-    y1 = y-s/300
-    y2 = y+s/300
+    f = 250
+    marginx = 0.005
+    marginy = 0.008
+
+    x1 = x-s/f*l    - marginx
+    x2 = x+s/f*l    + marginx
+    y1 = y-s/f      - marginy
+    y2 = y+s/f      + marginy
 
     return x1,x2,y1,y2
 end
 
-d = score[2]
-url = urls[2]
+d = score[end-7]
+url = urls[end-7]
 
 c = collect(values(d))
 k = collect(keys(d))
 idx = sortperm(c)
 
-isFree = ones(100,100)
+Nf = 400
+isOccupied = zeros(Nf,Nf)
 
 p = FramedPlot( xrange=(0,1), yrange=(0,1))
-add(p,PlotLabel(0.5,0.97, url ,color=0xcc0000,size= 4 ))
-for i=1:10
+#add(p,PlotLabel(0.5,0.97, url ,color=0xcc0000,size= 4 ))
+for i=1:min(300,length(idx))
 
-            ii = idx[end- i ]
+            ii = idx[end- i+1]
+            w = k[ii]
 
-            y = rand()
-            x = rand()
+            x1,x2,y1,y2,x,y = zeros(6)
+            s =  2 * abs(c[ii])/maximum(c)
+            col = 0x000000
 
-            s =  2 * c[ii]/maximum(c) + rand()
+            if i == 1
+                w = url
+                s = 1
+                col = 0xcc0000
+            end
 
-            x1,x2,y1,y2 = getBounds(x,y,s,length(k[ii]))
+            trials = 1
+            for trials = 1:500
 
-            add(p, PlotLabel(x,y, k[ii] ,color=0x000000,size=s))
+                y, x = rand(), rand()
+                x1,x2,y1,y2 = getBounds(x,y,s,length(w))
 
-            add(p,Points(x1, y1, kind="dot",color="red"))
-            add(p,Points(x2, y2, kind="dot",color="green"))
+                indx = iceil(x1*Nf):iceil(x2*Nf)
+                indy = iceil(y1*Nf):iceil(y2*Nf)
+
+                if  indx[1] < 1 || indx[end] > Nf || indy[1] < 1 || indy[end] > Nf
+                    x1 = -1
+                    continue
+                end
+
+                if sum(isOccupied[indx,indy]) == 0
+                    isOccupied[indx,indy] = 1
+                    break
+                else
+                    x1 = -1
+                end
+
+            end
+
+            if( x1 > -1 )
+
+                add(p, PlotLabel(x,y, w ,color=col,size=s))
+                #add(p,Points(x1, y1, kind="dot",color="red"))
+                #add(p,Points(x2, y2, kind="dot",color="green"))
+
+            end
 
 end
 
-title( url )
+#title( url )
 display(p)
