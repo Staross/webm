@@ -5,6 +5,7 @@ using URIParser
 using Mustache
 using Winston
 
+include("typeDef.jl")
 
 #callback for HTTPC.get, allow to use libCURL options
 function customize_curl(curl)
@@ -77,7 +78,6 @@ end
 function getLinks(page::String,url::String)
 
     host,schema = getHost(url)
-
 
     #m = eachmatch(r"href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|'']"is,page) #don't care about a tag
 
@@ -499,17 +499,21 @@ function countWords(words)
     return d
 end
 
+
+
 function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.3)
 
     sucess,page = getPage(url,debug = true)
 
     if !sucess
-        return (String[], String[])
+        return (String[], String[],webmap.sitePage(url,depth,sucess))
     end
 
     words = getWords(page)
 
     extL = String[]
+    sitePages = webmap.sitePage[]
+    push!(sitePages, webmap.sitePage(url,depth,sucess))
 
     if depth > 0 
 
@@ -541,15 +545,16 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.3)
         end
 
         for r in rrefs
-            tmpW, tmpL = fetch(r)
+            tmpW, tmpL, tmpPage = fetch(r)
 
             words = [words; tmpW]
             extL = [extL; tmpL]
+            sitePages = [sitePages; tmpPage]
         end 
         
     end
 
-    return  (words, extL)
+    return  (words, extL,sitePages)
 end
 
 
@@ -592,6 +597,28 @@ function crawl(depth,maxPages,url)
     return links
 end
 
+function plotExploreSite(sitePages,depth)
+
+    h = FramedPlot( xrange=(0,1), yrange=(0,1))
+
+
+    i=0;
+    for p in sitePages
+        col = 0x000000
+        if !p.success
+            col = 0xcc0000
+        end
+
+        th = 2*pi*rand()
+        u = URI(  ascii(p.url) )
+
+        add(h, PlotLabel(0.3  + 0.5*p.depth/depth,i/length(sitePages), u.path ,color=col,size=1))
+        i += 1
+    end
+
+    display(h)
+
+end
 
 #test basic functions
 function testBasicFunctions(url)
@@ -617,14 +644,14 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
 
-url = urls[3]
+url = urls[1]
 
 #test exploreSite
-if false
+if true
 
-depth = 2
-maxPages = 5
-words, extL = exploreSite(depth,maxPages,url,String[])
+depth = 3
+maxPages = 2
+words, extL,sitePages = exploreSite(depth,maxPages,url,String[])
 
 @time d = countWords(words)
 
