@@ -501,19 +501,19 @@ end
 
 
 
-function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.3)
+function exploreSite(depth,maxPages,url,alreadySeenLinks,parentUrl;sleepTime = 0.2)
 
     sucess,page = getPage(url,debug = true)
 
     if !sucess
-        return (String[], String[],webmap.sitePage(url,depth,sucess))
+        return (String[], String[],webmap.sitePage(url,depth,sucess,parentUrl))
     end
 
     words = getWords(page)
 
     extL = String[]
     sitePages = webmap.sitePage[]
-    push!(sitePages, webmap.sitePage(url,depth,sucess))
+    push!(sitePages, webmap.sitePage(url,depth,sucess,parentUrl))
 
     if depth > 0 
 
@@ -535,7 +535,7 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks;sleepTime = 0.3)
 
             #tmpW, tmpL = exploreSite(depth-1,maxPages,intL[p[i]],alreadySeenLinks)
  
-            rrefs = [rrefs; remotecall(1, exploreSite,depth-1,maxPages,intL[p[i]],alreadySeenLinks)]
+            rrefs = [rrefs; remotecall(1, exploreSite,depth-1,maxPages,intL[p[i]],alreadySeenLinks,url)]
             #wait(rrefs[i])
             sleep(sleepTime)
         end
@@ -620,6 +620,45 @@ function plotExploreSite(sitePages,depth)
 
 end
 
+function printExploreSite(sitePages,depth,url)
+
+        tpl = "
+        <html>
+        <head>
+        <title>{{Title}}</title>
+        </head>
+        <body>
+                <p>{{Title}}</p>
+                <table>
+                        <tr><th>name</th><th>Score (Log10)</th></tr>
+                        {{#d}}
+                        <tr><td>{{w}}</td><td>{{n}}</td></tr>
+                        {{/d}}
+                </table>
+        </body>
+        </html>
+        "
+
+        d = Array{Dict{Any,Any}}
+
+         for p in sitePages
+
+            d = [d;{"w" => p.url, "n" => p.depth}]
+        end
+
+        out = render(tpl, {"Title" => url, "d" => d})
+        url  = getHash(url)
+        f = open("tmp/$(url).htm","w")
+        print(f,out)
+        close(f)
+
+        #open file in browser
+        root = pwd()
+        cmd = `cmd /C $(root)\\tmp\\$(url).htm`
+        println(cmd)
+        run(cmd)
+end
+
 #test basic functions
 function testBasicFunctions(url)
     host,schema = getHost(url)
@@ -644,19 +683,21 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
 
-url = urls[1]
+url = urls[3]
 
 #test exploreSite
 if true
 
 depth = 3
-maxPages = 2
+maxPages = 3
 words, extL,sitePages = exploreSite(depth,maxPages,url,String[])
 
 @time d = countWords(words)
 
 println(length(d))
-writeInFile(d,"tmp.txt")
+#writeInFile(d,"tmp.txt")
+
+printExploreSite(sitePages,depth,url)
 
 end
 
