@@ -506,14 +506,14 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks,parentUrl;sleepTime = 0
     sucess,page = getPage(url,debug = true)
 
     if !sucess
-        return (String[], String[],webmap.sitePage(url,depth,sucess,parentUrl))
+        return (String[], String[],webmap.sitePage(url,parentUrl,depth,sucess))
     end
 
     words = getWords(page)
 
     extL = String[]
     sitePages = webmap.sitePage[]
-    push!(sitePages, webmap.sitePage(url,depth,sucess,parentUrl))
+    push!(sitePages, webmap.sitePage(url,parentUrl,depth,sucess))
 
     if depth > 0 
 
@@ -630,23 +630,27 @@ function printExploreSite(sitePages,depth,url)
         <body>
                 <p>{{Title}}</p>
                 <table>
-                        <tr><th>name</th><th>Score (Log10)</th></tr>
-                        {{#d}}
-                        <tr><td>{{w}}</td><td>{{n}}</td></tr>
-                        {{/d}}
+                        <tr><th>name</th><th>depth</th></tr>
+                        {{#pages}}
+                        <tr><td><a href=\"{{parent}}\" style=\"color: {{color}}\"> {{url}} </a></td><td>{{depth}}</td></tr>
+                        {{/pages}}
                 </table>
         </body>
         </html>
         "
 
-        d = Array{Dict{Any,Any}}
+        pages = Array{Dict{Any,Any}}
 
-         for p in sitePages
+        for p in sitePages
 
-            d = [d;{"w" => p.url, "n" => p.depth}]
+            pages = [pages;{"url" => p.url,
+                            "depth" => p.depth,
+                            "parent" => p.parentUrl,
+                            "color" => p.success ? "rgb(0,0,0)" : "rgb(255,0,0)"
+                            }]
         end
 
-        out = render(tpl, {"Title" => url, "d" => d})
+        out = render(tpl, {"Title" => url, "pages" => pages})
         url  = getHash(url)
         f = open("tmp/$(url).htm","w")
         print(f,out)
@@ -654,7 +658,8 @@ function printExploreSite(sitePages,depth,url)
 
         #open file in browser
         root = pwd()
-        cmd = `cmd /C $(root)\\tmp\\$(url).htm`
+        @windows? (cmd = `cmd /C $(root)\\tmp\\$(url).htm`) : (nothing)
+        @osx? (cmd = `open $(root)/tmp/$(url).htm`) : (nothing)
         println(cmd)
         run(cmd)
 end
@@ -683,18 +688,18 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
 
-url = urls[3]
+url = urls[4]
 
 #test exploreSite
 if true
 
 depth = 3
 maxPages = 3
-words, extL,sitePages = exploreSite(depth,maxPages,url,String[])
+@time words, extL,sitePages = exploreSite(depth,maxPages,url,String[],"")
 
-@time d = countWords(words)
+d = countWords(words)
 
-println(length(d))
+println(length(sitePages))
 #writeInFile(d,"tmp.txt")
 
 printExploreSite(sitePages,depth,url)
@@ -730,5 +735,3 @@ end
 end
 
 println("webmap.jl: done!")
-
-
