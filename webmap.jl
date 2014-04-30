@@ -15,7 +15,7 @@ function customize_curl(curl)
   end  
 end
 
-function getPage(url::String;debug=false)
+function getPage(url::String;debug=true)
 
     #println("Getting url: $url")
 
@@ -25,6 +25,22 @@ function getPage(url::String;debug=false)
                         request_timeout=5.0,
                         callback=customize_curl    
                     ))
+
+        u = URI(ascii(url))
+        host = lowercase(u.host)
+
+        #check if we left the site via redirection
+        for h in ["Location","location"]
+            if haskey(r.headers,h)
+                    u = URI(r.headers[h])
+                    host2 = lowercase(u.host)
+
+                    if host != host2
+                        println("shit, I left the site")
+                        return (true,"")
+                    end
+            end
+        end
 
         if r.http_code != 200
             code = r.http_code
@@ -686,9 +702,10 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.usatoday.com/",
          "http://www.philpapers.org",
          "http://www.cnet.com/",
-         "http://www.r-project.org/"]
+         "http://www.r-project.org/",
+         "http://www.fuq.com/"]
 
-url = urls[4]
+url = urls[end]
 
 #test exploreSite
 if true
