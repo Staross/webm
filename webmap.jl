@@ -3,7 +3,8 @@ reload("htmlEntities")
 using HTTPClient.HTTPC
 using URIParser
 using Mustache
-using Winston
+#using Winston
+using Gumbo
 
 include("typeDef.jl")
 
@@ -262,7 +263,7 @@ function Base.write(url::String,d::Dict{UTF8String, Int64})
 end
 
 function Base.read(url::String)
-println(url)
+    println(url)
     url = getHash(url)
 
 
@@ -310,163 +311,6 @@ function writeInFile(d::Dict{UTF8String, Int64},file::String)
 end
 
 
-function getWords1(page)
-
-    #remove javascript, css, ..
-    ex = r"<\s*script[^<]*?>.*?</\s*script\s*>"is;
-    page = replace(page,ex,"")
-
-    ex = r"<\s*style[^<]*?>.*?</\s*style\s*>"is;
-    page = replace(page,ex,"")
-    page = replace(page,r"<!--.*?-->"is,"")
-
-    # remove tags
-    ex = r"<[^>]*>"is;
-    page = replace(page, ex, "");
-
-    #remove some html tags
-    page = replace(page, "&nbsp;", " ");
-    page = replace(page, "&quot;", "");
-    page = replace(page, "&#8217;", "'");
-    
-
-    page = replace(page, r"[^\w\n\s\t-]"is, " "); #remove non-text
-
-    page = replace(page, r"\s+"," ");
-
-    println(page)
-
-end
-
-function cleanPage(s::String)
-
-    s = lowercase(s)
-
-    #remove javascript, css, ..
-    ex = r"<\s*script[^<]*?>.*?</\s*script\s*>"is;
-    s = replace(s,ex,"")
-
-    ex = r"<\s*style[^<]*?>.*?</\s*style\s*>"is;
-    s = replace(s,ex,"")
-    s = replace(s,r"<!--.*?-->"is,"")
-
-    s = replace(s,r"\n"," ")
-    s = replace(s,r"\t"," ")
-    s = replace(s,r"â€”"," ")#long dash
-
-    #remove some html tags
-    s = replace(s, "&nbsp;", " ");
-    s = replace(s, "&quot;", "");
-    s = replace(s, "&gt;", ">");
-    s = replace(s, "&lt;", "<");
-    s = replace(s, "&raquo;", "'");
-    s = replace(s, "&laquo;", "'");
-    
-    for i=16:22
-        s = replace(s, Regex("&#82$i;","is"), "'");
-    end
-
-    #remove some common tags
-    tags = ["a","i","b","p","span","li","ul","h1","h2","h3","tt","cite","td","tr","table","div"]
-    for t in tags
-        s = replace(s, Regex("<\s*$t[^>]*>","is"), " ")
-        s = replace(s, Regex("<\s*/\s*$t\s*>","is")," ")
-    end
-
-    s = replace(s, r"\"","'")
-
-    #remove punctuation
-    s = replace(s, r","," ")
-    s = replace(s, r"\."," ")
-    s = replace(s, r"\?"," ")
-    s = replace(s, r"\s+"," ")
-
-    return s
-end
-
-function getWords(s;debug=false)
-
-    s = cleanPage(s)
-
-    #split
-    ex = r"([A-Z0-9a-z\s.,!?'\"$&:;\-\(\)%\*\+]*)"is
-    mat = matchall(ex,s)
-
-    N = length(mat)
-
-    phraseLength         = zeros(N);
-    meanWordLength       = zeros(N);
-    fractionOfNumbers    = zeros(N);
-    fractionOfWeirdSigns = zeros(N);
-
-    for i=1:N
-
-        p = mat[i]
-
-        if length(p) == 0
-            continue
-        end
-
-        Ntot = length( replace(p,r"\s+","") )
-
-        #compute fraction of numbers and of weird signs
-        tmpNoNumbers = replace(p, r"[^a-z]"," ");#remove everything except A-Z
-
-        p = replace(p, r"[^a-z0-9]", " ");#remove everything except A-Z and numbers
-
-        N1 = length( replace(tmpNoNumbers,r"\s+","") )
-        N2 = length( replace(p,r"\s+","") )
-
-        if N2>0 
-            fractionOfNumbers[i] = (N2-N1)/N2
-        end
-
-        if Ntot>0 
-            fractionOfWeirdSigns[i] = (Ntot-N2)/Ntot
-        end
-
-        words = split(p,r"\s+")
-
-        phraseLength[i] = length(words)
-
-        if !isempty(words)
-            for j=1:length(words)
-                meanWordLength[i] = meanWordLength[i] + length(words[j])
-            end
-
-            meanWordLength[i] = meanWordLength[i]/length(words)
-        end
-
-    end
-
-    phrases = find( 
-             (phraseLength .> 10) & (meanWordLength .< 10) & 
-             (meanWordLength .> 3) & (fractionOfNumbers .< 0.1) & 
-             (fractionOfWeirdSigns .< 0.1 ) )
-
-    phrases = unique(mat[phrases])
-
-    out = String[]
-    for p in phrases
-
-        p = replace(p,r"[^a-z0-9-'']"," ")
-        p = split(p, r"[\s*\t*]")
-
-        for w in p
-            if !isempty(w) && w != " " && w != "-"
-                push!(out,utf8(w))
-            end
-        end
-
-    end
-
-    if debug
-        writeInFile(out,"tmp.txt")
-    end
-
-    return out
-end
-
 function sortDict(d)#pretty much useless
 
     c = collect(values(d)) 
@@ -498,8 +342,6 @@ function countWords(words)
 
     return d
 end
-
-
 
 function exploreSite(depth,maxPages,url,alreadySeenLinks,parentUrl;sleepTime = 0.2)
 
@@ -664,6 +506,55 @@ function printExploreSite(sitePages,depth,url)
         run(cmd)
 end
 
+function getWords(page)
+    
+    doc = parsehtml(page)
+
+    #get body
+    body = HTMLElement(:body)
+    for elem in preorder(doc.root)
+        if typeof(elem) == HTMLElement{:body}
+            body = elem
+            break
+        end
+    end
+    
+    
+    #get links
+    for elem in preorder(body)
+        if typeof(elem) == HTMLElement{:a}
+            println(getattr(elem, "href"))
+        end
+    end
+
+    phrases = String[]
+    for elem in preorder(body)
+        if ( typeof(elem) == HTMLText 
+             && typeof(elem.parent) != HTMLElement{:script}
+             && typeof(elem.parent) != HTMLElement{:style} )
+
+             push!(phrases,lowercase(elem.text))
+        end
+    end
+   
+    out = String[]
+    for p in phrases
+
+        #p = replace(p,r"[^a-z0-9-'']"," ")
+        p = split(p, r"[\s*\t*]")
+
+        for w in p
+            if !isempty(w) && w != " " && w != "-"
+                push!(out,utf8(w))
+            end
+        end
+
+    end
+    
+    return out
+    
+end
+
 #test basic functions
 function testBasicFunctions(url)
     host,schema = getHost(url)
@@ -688,12 +579,13 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.cnet.com/",
          "http://www.r-project.org/"]
 
-url = urls[4]
+url = urls[1]
+
 
 #test exploreSite
 if true
 
-depth = 3
+depth = 2
 maxPages = 3
 @time words, extL,sitePages = exploreSite(depth,maxPages,url,String[],"")
 
