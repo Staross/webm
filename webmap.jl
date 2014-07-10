@@ -16,7 +16,7 @@ function customize_curl(curl)
   end  
 end
 
-function getPage(url::String;debug=false)
+function getPage(url::String;debug=true)
 
     #println("Getting url: $url")
 
@@ -26,6 +26,22 @@ function getPage(url::String;debug=false)
                         request_timeout=5.0,
                         callback=customize_curl    
                     ))
+
+        u = URI(ascii(url))
+        host = lowercase(u.host)
+
+        #check if we left the site via redirection
+        for h in ["Location","location"]
+            if haskey(r.headers,h)
+                    u = URI(r.headers[h])
+                    host2 = lowercase(u.host)
+
+                    if host != host2
+                        println("shit, I left the site")
+                        return (true,"")
+                    end
+            end
+        end
 
         if r.http_code != 200
             code = r.http_code
@@ -76,19 +92,19 @@ function getHost(url::String)
     end
 end
 
-function getLinks(page::String,url::String)
+function getLinks(relLinks::Array{String,1},url::String)
 
     host,schema = getHost(url)
 
     #m = eachmatch(r"href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|'']"is,page) #don't care about a tag
 
-    matches = eachmatch(r"<a[^>]*href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|''][^>]*[>|/>]"is,page)
+    #matches = eachmatch(r"<a[^>]*href\s*=\s*[\"|'|'']\s*([^\"']+)\s*[\"|'|''][^>]*[>|/>]"is,page)
 
     intL = Array(String,0)
     extL = Array(String,0)
 
-    for m in matches
-        s =  utf8(m.captures[1])
+    for m in relLinks
+        s =  utf8(m)
 
         #remove whitespaces
         s = replace(s,r"\s+"is,"")
@@ -351,7 +367,7 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks,parentUrl;sleepTime = 0
         return (String[], String[],webmap.sitePage(url,parentUrl,depth,sucess))
     end
 
-    words = getWords(page)
+    words, relLinks = getWords(page)
 
     extL = String[]
     sitePages = webmap.sitePage[]
@@ -359,7 +375,7 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks,parentUrl;sleepTime = 0
 
     if depth > 0 
 
-        intL,extL = getLinks(page,url)
+        intL,extL = getLinks(relLinks,url)
                 
         intL = setdiff(intL,alreadySeenLinks)
         
@@ -521,9 +537,10 @@ function getWords(page)
     
     
     #get links
+    links = String[]
     for elem in preorder(body)
         if typeof(elem) == HTMLElement{:a}
-            println(getattr(elem, "href"))
+            push!(links,getattr(elem, "href"))            
         end
     end
 
@@ -551,7 +568,7 @@ function getWords(page)
 
     end
     
-    return out
+    return out, links
     
 end
 
@@ -577,10 +594,11 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
          "http://www.usatoday.com/",
          "http://www.philpapers.org",
          "http://www.cnet.com/",
-         "http://www.r-project.org/"]
+         "http://www.r-project.org/",
+         "http://www.fuq.com/"]
+
 
 url = urls[1]
-
 
 #test exploreSite
 if true
@@ -594,7 +612,7 @@ d = countWords(words)
 println(length(sitePages))
 #writeInFile(d,"tmp.txt")
 
-printExploreSite(sitePages,depth,url)
+#printExploreSite(sitePages,depth,url)
 
 end
 
