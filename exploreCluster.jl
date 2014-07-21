@@ -1,5 +1,4 @@
 reload("webmap.jl")
-
 function loadData(urls)
 
 	ds = Array(Dict{UTF8String, Int64},length(urls))
@@ -11,8 +10,8 @@ end
 
 function printScore(d,url)
 
-    c = collect(values(d)) 
-    k = collect(keys(d)) 
+    c = collect(values(d))
+    k = collect(keys(d))
 
     idx = sortperm(c)
 
@@ -22,13 +21,13 @@ function printScore(d,url)
         w = k[idx[i]]
         n = c[idx[i]]
         println("$n : $w")
-    end 
+    end
 
     for i = max(length(idx)-8,1):length(idx)
         w = k[idx[i]]
         n = c[idx[i]]
         println("$n : $w")
-    end 
+    end
 
     println("------------------")
 
@@ -37,8 +36,8 @@ end
 
 function printScoreHTML(d,url)
 
-    c = collect(values(d)) 
-    k = collect(keys(d)) 
+    c = collect(values(d))
+    k = collect(keys(d))
     idx = sortperm(c)
 
 	tpl = "
@@ -64,13 +63,13 @@ function printScoreHTML(d,url)
 	    w = k[idx[i]]
 	    n = c[idx[i]]
 	    d = [d;{"w" => w, "n" => n}]
-	end 
+	end
 
 	for i = max(length(idx)-15,1):length(idx)
 	    w = k[idx[i]]
 	    n = c[idx[i]]
 	    d = [d;{"w" => w, "n" => n}]
-	end 
+	end
 
 	out = render(tpl, {"Title" => url, "d" => d})
 	url  = getHash(url)
@@ -90,18 +89,18 @@ function makeBackground(ds)
 
 	bkg = Dict{UTF8String, Int64}()
 
-	for i = 1:length(ds)		 
-	    c = collect(values(ds[i])) 
+	for i = 1:length(ds)
+	    c = collect(values(ds[i]))
             w = collect(keys(ds[i]))
 
 		for j=1:length(w)
 			k = w[j]
 
-	        if haskey(bkg,k)             
+	        if haskey(bkg,k)
             	bkg[k] = bkg[k]+c[j]
 	        else
 	            bkg[k] = c[j]
-	        end    
+	        end
 		end
 	end
 
@@ -130,7 +129,7 @@ function getDistance(s1,s2)
 		else
 			d = d + abs(s1[k]-m)
 		end
-	end 
+	end
 	d = 100 * d / length(s1) / length(s2)
 	return d
 end
@@ -183,7 +182,7 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
 urls = ["http://www.techradar.com/","http://www.engadget.com/","http://www.cnet.com/",
 "http://philpapers.org/","http://plato.stanford.edu/","http://www.iep.utm.edu/","http://web.mit.edu/",
 "http://yale.edu/","http://www.rockpapershotgun.com/","http://www.indiedb.com/",
-"http://www.lushstories.com/","http://www.fuq.com","http://www.youjizz.com/",
+"http://www.lushstories.com/","http://www.fuq.com","http://www.youporn.com/",
 "http://julia.readthedocs.org/en/latest/manual/introduction/",
 "http://www.nytimes.com/","http://www.usatoday.com/"]
 
@@ -193,9 +192,9 @@ urls = ["http://www.techradar.com/","http://www.engadget.com/","http://www.cnet.
 
 Nu = length(urls)
 
-doUpdate = false
+doUpdate = true
 
-depth = 3
+depth = 1
 maxPages = 6#number of page per level
 println(maxPages^depth)
 
@@ -203,8 +202,8 @@ if doUpdate
 
 	rrefs = []
 	for i=1:Nu
-	    rrefs = [rrefs; remotecall(1,exploreSite, depth,maxPages,urls[i],String[])]
-	end   
+	    rrefs = [rrefs; remotecall(1,exploreSite, depth,maxPages,urls[i],String[],"root")]
+	end
 
 	for r in rrefs
 	   wait(r)
@@ -217,13 +216,12 @@ if doUpdate
 	end
 
 	for i = 1:length(ds)
-		url = urls[i]
+		  url = urls[i]
 	    N = length(ds[i])
 	    println("$url : $N")
 
 	    write(url,ds[i])
 	end
-
 else
 
 	ds = loadData(urls)
@@ -340,3 +338,4 @@ end
 
 #title( url )
 display(p)
+

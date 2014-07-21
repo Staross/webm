@@ -1,9 +1,10 @@
+cd("D:/Julia/webm/")
 reload("htmlEntities")
 
 using HTTPClient.HTTPC
 using URIParser
 using Mustache
-#using Winston
+using Winston
 using Gumbo
 
 include("typeDef.jl")
@@ -13,7 +14,7 @@ function customize_curl(curl)
   cc = LibCURL.curl_easy_setopt(curl, LibCURL.CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 6.1; rv:28.0) Gecko/20100101 Firefox/28.0")
   if cc != LibCURL.CURLE_OK
     error ("CURLOPT_USERAGENT failed: " * LibCURL.bytestring(curl_easy_strerror(cc)))
-  end  
+  end
 end
 
 function getPage(url::String;debug=true)
@@ -24,7 +25,7 @@ function getPage(url::String;debug=true)
 
         r = HTTPC.get(url,RequestOptions(
                         request_timeout=5.0,
-                        callback=customize_curl    
+                        callback=customize_curl
                     ))
 
         u = URI(ascii(url))
@@ -53,8 +54,8 @@ function getPage(url::String;debug=true)
 
         heads = ["Content-Type","Content-type","content-type","content-Type"]
         for h in heads
-            if haskey(r.headers,h) 
-                if match(r"text/htm",lowercase(r.headers[h])) == nothing  
+            if haskey(r.headers,h)
+                if match(r"text/htm",lowercase(r.headers[h])) == nothing
                     return (false,"")
                 end
             end
@@ -70,7 +71,7 @@ function getPage(url::String;debug=true)
             println(err)
         end
         return (false,"")
-    end   
+    end
 end
 
 
@@ -82,7 +83,7 @@ function getHost(url::String)
         if false && length(host)>3 #you can't do that, some servers don't like it
            if host[1:4] != "www."
                 host = string("www.",host)
-           end 
+           end
         end
         return host, lowercase(u.schema)
 
@@ -90,6 +91,18 @@ function getHost(url::String)
         warn("getHost failed to parse: $url")
         return (String[],String[])
     end
+end
+
+function getLinks(page::String,url::String)
+
+    doc = parsehtml(page)
+    body = getBody(doc)
+
+    #get relative links
+    links = getHrefs(body)
+
+    return getLinks(links,url)
+
 end
 
 function getLinks(relLinks::Array{String,1},url::String)
@@ -246,7 +259,7 @@ end
 
 function removeHttp(url)
 
-    if length(url) > 7 
+    if length(url) > 7
         if  lowercase(url[1:7]) == "http://"
             url = url[8:end]
         end
@@ -265,8 +278,8 @@ end
 function Base.write(url::String,d::Dict{UTF8String, Int64})
 
     url = getHash(url)
-    c = collect(values(d)) 
-    w = collect(keys(d)) 
+    c = collect(values(d))
+    w = collect(keys(d))
 
     f=open( "data/$(url)_w" ,"w")
     writecsv(f,w)
@@ -295,7 +308,7 @@ function Base.read(url::String)
     c = Array(Int64,length(w))
     f=open( "data/$(url)_c","r")
     for i=1:length(w)
-        c[i] = read(f,Int64)        
+        c[i] = read(f,Int64)
     end
     close(f)
 
@@ -313,8 +326,8 @@ function writeInFile(d::Dict{UTF8String, Int64},file::String)
 
     f=open(file,"w")
 
-    c = collect(values(d)) 
-    k = collect(keys(d)) 
+    c = collect(values(d))
+    k = collect(keys(d))
 
     idx = sortperm(c)
 
@@ -322,23 +335,23 @@ function writeInFile(d::Dict{UTF8String, Int64},file::String)
         w = k[idx[i]]
         n = c[idx[i]]
         println(f,"$n : $w")
-    end 
+    end
     close(f)
 end
 
 
 function sortDict(d)#pretty much useless
 
-    c = collect(values(d)) 
-    k = collect(keys(d)) 
+    c = collect(values(d))
+    k = collect(keys(d))
 
     idx = sortperm(c)
 
     d = Dict{UTF8String, Int64}()
-    
+
     for i = 1:length(idx)
         d[k[idx[i]]] = c[idx[i]]
-    end 
+    end
 
     return d
 end
@@ -349,11 +362,11 @@ function countWords(words)
 
     for w in words
 
-        if haskey(d,w)             
+        if haskey(d,w)
             d[w] = d[w]+1
         else
             d[w] = 1
-        end    
+        end
     end
 
     return d
@@ -373,26 +386,26 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks,parentUrl;sleepTime = 0
     sitePages = webmap.sitePage[]
     push!(sitePages, webmap.sitePage(url,parentUrl,depth,sucess))
 
-    if depth > 0 
+    if depth > 0
 
         intL,extL = getLinks(relLinks,url)
-                
+
         intL = setdiff(intL,alreadySeenLinks)
-        
-        if isempty(intL) 
+
+        if isempty(intL)
            return  (words, extL)
         end
-        
+
         p = randperm(length(intL))
         p = p[1:min(maxPages,length(intL))]
-        
+
         alreadySeenLinks = [alreadySeenLinks; intL[p]]
-        
+
         rrefs = []
         for i=1:length(p)
 
             #tmpW, tmpL = exploreSite(depth-1,maxPages,intL[p[i]],alreadySeenLinks)
- 
+
             rrefs = [rrefs; remotecall(1, exploreSite,depth-1,maxPages,intL[p[i]],alreadySeenLinks,url)]
             #wait(rrefs[i])
             sleep(sleepTime)
@@ -408,8 +421,8 @@ function exploreSite(depth,maxPages,url,alreadySeenLinks,parentUrl;sleepTime = 0
             words = [words; tmpW]
             extL = [extL; tmpL]
             sitePages = [sitePages; tmpPage]
-        end 
-        
+        end
+
     end
 
     return  (words, extL,sitePages)
@@ -420,20 +433,20 @@ function crawl(depth,maxPages,url)
 
     links = [url];
 
-    if depth > 0 
-        
+    if depth > 0
+
         sucess,page = getPage(url,debug = false)
 
         if !sucess
             return links
         end
-        
+
         intL,extL = getLinks(page,url)
-        
-        if isempty(extL) 
+
+        if isempty(extL)
            return
         end
-          
+
         p = randperm(length(extL));
         p = p[1:min(maxPages,length(extL))];
 
@@ -449,7 +462,7 @@ function crawl(depth,maxPages,url)
         for r in rrefs
             tmpL = fetch(r)
             links = [links; tmpL]
-        end 
+        end
     end
 
     return links
@@ -522,11 +535,7 @@ function printExploreSite(sitePages,depth,url)
         run(cmd)
 end
 
-function getWords(page)
-    
-    doc = parsehtml(page)
-
-    #get body
+function getBody(doc::HTMLDocument)
     body = HTMLElement(:body)
     for elem in preorder(doc.root)
         if typeof(elem) == HTMLElement{:body}
@@ -534,26 +543,41 @@ function getWords(page)
             break
         end
     end
-    
-    
-    #get links
+
+  return body
+end
+
+function getHrefs(body::HTMLElement)
     links = String[]
     for elem in preorder(body)
         if typeof(elem) == HTMLElement{:a}
-            push!(links,getattr(elem, "href"))            
+            try
+              push!(links,getattr(elem, "href"))
+            catch
+            end
         end
     end
+    return links
+end
+
+function getWords(page)
+
+    doc = parsehtml(page)
+    body = getBody(doc)
+
+    #get links
+    links = getHrefs(body)
 
     phrases = String[]
     for elem in preorder(body)
-        if ( typeof(elem) == HTMLText 
+        if ( typeof(elem) == HTMLText
              && typeof(elem.parent) != HTMLElement{:script}
              && typeof(elem.parent) != HTMLElement{:style} )
 
              push!(phrases,lowercase(elem.text))
         end
     end
-   
+
     out = String[]
     for p in phrases
 
@@ -567,9 +591,9 @@ function getWords(page)
         end
 
     end
-    
+
     return out, links
-    
+
 end
 
 #test basic functions
@@ -601,17 +625,14 @@ urls = ["http://julia.readthedocs.org/en/latest/manual/introduction/",
 url = urls[1]
 
 #test exploreSite
-if true
+if false
 
 depth = 2
 maxPages = 3
 @time words, extL,sitePages = exploreSite(depth,maxPages,url,String[],"")
-
 d = countWords(words)
 
-println(length(sitePages))
 #writeInFile(d,"tmp.txt")
-
 #printExploreSite(sitePages,depth,url)
 
 end
