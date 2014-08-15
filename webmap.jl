@@ -1,4 +1,4 @@
-cd("D:/Julia/webm/")
+#cd("D:/Julia/webm/")
 reload("htmlEntities")
 
 using HTTPClient.HTTPC
@@ -257,7 +257,7 @@ function writeInFile(var::Array{String,1},file::String)
     close(f)
 end
 
-function removeHttp(url)
+function removeHttp(url::String)
 
     if length(url) > 7
         if  lowercase(url[1:7]) == "http://"
@@ -567,6 +567,7 @@ function getWords(page)
 
     #get links
     links = getHrefs(body)
+    links = unique(links)
 
     phrases = String[]
     for elem in preorder(body)
@@ -591,18 +592,38 @@ function getWords(page)
         end
 
     end
-
+    
+    
     return out, links
 
+end
+
+function Base.show(d::Dict{UTF8String,Int64})
+
+   i = 0
+   for (k,v) in d
+       if length(v) < 5
+        print( "$k: $v\t\t\t\t")
+       else
+        print( "$k: $v")    
+       end
+       
+       i +=1       
+       if mod(i,3) ==0
+          print("\n") 
+       end
+   end
+ 
+    
 end
 
 #test basic functions
 function testBasicFunctions(url)
     host,schema = getHost(url)
     sucess,page = getPage(url)
-
-    @time intL,extL = getLinks(page,url)
-    @time words = getWords(page,debug=true)
+    
+    @time words, links = getWords(page)
+    @time intL,extL = getLinks(links,url)
     @time d = countWords(words)
     @time write(url,d)
     @time d = read(url)
