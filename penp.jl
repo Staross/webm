@@ -1,6 +1,7 @@
 using HTTPClient.HTTPC
 using URIParser
 using Gumbo
+using Distributions
 
 #callback for HTTPC.get, allow to use libCURL options
 function customize_curl(curl)
@@ -141,7 +142,7 @@ function getData(titles,baseUrl,postUrls)
   return data
 end
 
-cd("D:/Julia/webm")
+#cd("D:/Julia/webm")
 data = zeros(0,3)
 
 url = "http://www.reddit.com/r/penpals/"
@@ -177,6 +178,11 @@ age   = float(readcsv("penpalDataAge.csv"))
 sex   = float(readcsv("penpalDataSex.csv"))
 gamer = float(readcsv("penpalDataLikeGames.csv"))
 
+age   = [age float(readcsv("data1/penpalDataAge.csv"))];
+sex   = [sex float(readcsv("data1/penpalDataSex.csv"))];
+gamer = [gamer float(readcsv("data1/penpalDataLikeGames.csv"))];
+
+
 
 N = length(sex)
 Nmen = sum(sex.==0)
@@ -211,4 +217,31 @@ sum(gamer[sel])/sum(sel)
 int(sum(gamer[sel]))//sum(sel)
 
 
+Nx = sum(gamer[sex.==1]);
+
+x = linspace(0,1,100);
+P(p) = pdf(Binomial(Nwom,p),Nx)
+y = float([P(x[i]) for i=1:length(x)])
+y = y / sum(y);
+scatterplot(x[:],y[:])
+
+mu = sum( x .* y)
+sigma = sqrt( sum( (x -mu).^2  .* y ) )
+
+Nx = sum(gamer[sex.==0]);
+
+x = linspace(0,1,100);
+P(p) = pdf(Binomial(Nmen,p),Nx)
+y = float([P(x[i]) for i=1:length(x)])
+y = y / sum(y);
+scatterplot(x[:],y[:])
+
+mu = sum( x .* y)
+sigma = sqrt( sum( (x -mu).^2  .* y ) )
+
+
 println("Sucess")
+
+
+
+
